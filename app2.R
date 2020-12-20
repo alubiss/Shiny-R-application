@@ -1,5 +1,6 @@
 library(shiny)
 
+library(quantmod)
 library(dplyr)
 library("ggplot2")
 theme_set(theme_bw())
@@ -71,6 +72,7 @@ dane2 <- dane %>% arrange(desc(Date_reported)) %>% filter(Date_reported == max(d
 new_c= sum(dane2$New_cases)
 new_d= sum(dane2$New_deaths)
 all_time= sum(dane2$Cumulative_cases)
+
 
 # https://rstudio.github.io/shinydashboard/get_started.html
 
@@ -172,7 +174,7 @@ ui <- dashboardPage(
                 
                 box( width = 12, solidHeader = TRUE,
                      title = "Plot for the selected country:",
-                     plotOutput("country_plot", width = "100%", height = 500)
+                     dygraphOutput("dygraph", width = "100%", height = 500)
                      
                      )
                 
@@ -354,6 +356,7 @@ server <- function(input, output) {
     
     output$country_plot <- renderPlot({
         dane4= dane %>% filter(Country == input$country)
+        
         ggplot(data = dane4, aes(x = Date_reported)) +
             geom_line(aes(y = New_cases)) +
             geom_line(aes(y = New_deaths*10/1), color='red',linetype = "dashed")+
@@ -361,7 +364,29 @@ server <- function(input, output) {
             theme_minimal()
     })
     
-    
+    output$dygraph <- renderDygraph({
+        dane4= dane %>% filter(Country == input$country)
+        
+        # dygraph
+        dygraph_data = dane4 %>% dplyr:: select(New_deaths, New_cases, Date_reported)
+        rownames(dygraph_data) <- dygraph_data$Date_reported
+        dygraph_data = dygraph_data %>% dplyr:: select(New_deaths, New_cases)
+        dygraph_data = as.xts(dygraph_data)
+        all <- cbind(dygraph_data$New_cases, dygraph_data$New_deaths)
+        
+        colnames(all) <- c("New_cases", "New_deaths")
+        
+        dygraph(all, main = "New cases and deaths by Country") %>%
+            dySeries("New_deaths", axis = "y2") %>%
+            dyAxis(name = "y", label = "New_cases") %>%
+            dyAxis(name = "y2", label = "New_deaths")%>%
+            #dyAxis(name = "y",
+            #       axisLabelFormatter = 'function(num){return Math.round(num/1000)+"tys."}',
+            #       valueFormatter = 'function(num){return Math.round(num/1000)+"tys."}')%>%
+            dyRangeSelector(fillColor = "neavyblue") %>%
+            dyEvent("2020-10-01", "wynalezienie szczepionki", labelLoc = "bottom")
+        
+    })
     
     
     }
